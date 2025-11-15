@@ -1,3 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>UNIT GROWTH TRACKER</title>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;800&family=Roboto+Mono&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-firestore-compat.js"></script>
+<style>
+  :root {
+    --camo-dark: #1a2a1a;
+    --camo-mid: #2e3b2e;
+    --olive: #6b8e23;
+    --khaki: #b2b27d;
+    --sand: #f4f3e8;
+    --accent: #ffcc00;
+    --shadow: rgba(0,0,0,0.6);
+  }
+  * {box-sizing:border-box; margin:0; padding:0;}
+  body {
+    font-family: 'Roboto Mono', monospace;
+    background: #1a2a1a;
+    background-image: 
+      repeating-linear-gradient(45deg, #1a2a1a, #1a2a1a 30px, #2e3b2e 30px, #2e3b2e 60px),
+      repeating-linear-gradient(-45deg, #1a2a1a, #1a2a1a 30px, #2e3b2e 30px, #2e3b2e 60px);
+    color: var(--sand);
+    min-height:100vh;
+    padding:20px;
+  }
+  .container {max-width:1100px; margin:auto;}
+  .header {
+    text-align:center; padding:20px; border-bottom:4px double var(--khaki);
+    display:flex; justify-content:center; align-items:center; gap:20px;
+    background: rgba(0,0,0,0.4); border-radius:12px; margin-bottom:25px;
+  }
+  .logo {
+    width:90px; height:90px; border-radius:50%; border:4px solid var(--accent);
+    box-shadow:0 0 20px var(--accent), 0 0 40px rgba(0,0,0,0.5);
+    object-fit:contain; background:#000;
+  }
+  h1 {font-family:'Orbitron',sans-serif; font-size:2.2em; color:var(--accent); text-shadow:0 0 10px var(--accent);}
+  .section {
+    background: rgba(30,40,30,0.95); border:2px solid var(--olive);
+    border-radius:12px; padding:20px; margin-bottom:25px;
+    box-shadow:0 6px 20px var(--shadow);
+  }
+  h2 {font-family:'Orbitron',sans-serif; color:var(--khaki); margin-bottom:12px; font-size:1.3em;}
+  input, select, button {
+    padding:10px 14px; margin:5px; border-radius:8px; border:1px solid var(--khaki);
+    background:#2c2c2c; color:var(--sand); font-family:inherit;
+  }
+  button {
+    background:var(--olive); color:#fff; font-weight:bold; cursor:pointer;
+    transition:.2s; border:none; text-transform:uppercase;
+  }
+  button:hover {background:#8ab23a; transform:scale(1.03);}
+  table {width:100%; border-collapse:collapse; margin-top:15px;}
+  th, td {border:1px solid var(--khaki); padding:10px; text-align:center;}
+  th {background:var(--camo-mid); color:var(--accent); font-weight:bold;}
+  td {background:rgba(180,180,140,0.1);}
+  .total td {background:var(--olive) !important; color:#fff; font-weight:bold;}
+  .delete-btn {background:#a33; font-size:11px; padding:5px 10px;}
+  .delete-btn:hover {background:#c44;}
+  #report, #chartContainer {display:none;}
+  canvas {background:rgba(0,0,0,0.3); border-radius:8px; margin-top:15px;}
+  .status {color:#8ab23a; font-size:0.9em; text-align:center; margin-top:10px;}
+</style>
+</head>
+<body>
+
+<div class="container">
+
+  <div class="header">
+    <img src="https://files.catbox.moe/5m6h0x.png" alt="Unit Logo" class="logo">
+    <h1>UNIT GROWTH TRACKER</h1>
+    <img src="https://files.catbox.moe/5m6h0x.png" alt="Unit Logo" class="logo">
+  </div>
+
+  <div class="section">
+    <h2>LOG EVENT</h2>
+    <input type="date" id="eventDate" required>
+    <select id="eventType">
+      <option value="Join">JOIN</option>
+      <option value="Interview">INTERVIEW</option>
+      <option value="Promotion">PROMOTION</option>
+      <option value="Leave">LEAVE</option>
+    </select>
+    <button onclick="addEvent()">ADD</button>
+    <div class="status" id="status">Connecting to HQ...</div>
+  </div>
+
+  <div class="section">
+    <h2>EVENT LOG</h2>
+    <table id="logTable">
+      <thead><tr><th>Date</th><th>Event</th><th>Action</th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="section">
+    <h2>MONTHLY REPORT</h2>
+    <label>Month: <input type="number" id="month" min="1" max="12" value="11"></label>
+    <label>Year: <input type="number" id="year" min="2000" value="2025"></label>
+    <button onclick="generateReport()">GENERATE</button>
+  </div>
+
+  <div class="section" id="report">
+    <h2 id="reportTitle"></h2>
+    <table id="reportTable">
+      <thead><tr><th>Week</th><th>Joins</th><th>Interviews</th><th>Promotions</th><th>Leaves</th></tr></thead>
+      <tbody>
+        <tr><td>Week 1 (1–7)</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>Week 2 (8–14)</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>Week 3 (15–21)</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr><td>Week 4 (22–End)</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+        <tr class="total"><td>TOTAL</td><td>0</td><td>0</td><td>0</td><td>0</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="section" id="chartContainer">
+    <h2>GROWTH TREND</h2>
+    <canvas id="growthChart"></canvas>
+  </div>
+
+</div>
+
 <script>
 // === YOUR FIREBASE CONFIG ===
 const firebaseConfig = {
@@ -10,7 +138,6 @@ const firebaseConfig = {
 };
 // =============================================
 
-// Use Firebase v9 Compat (required for firebase.firestore())
 firebase.initializeApp(firebaseConfig);
 const db = firebase.firestore();
 const eventsRef = db.collection('events');
@@ -19,7 +146,6 @@ let events = [];
 let chart = null;
 const status = document.getElementById('status');
 
-// Real-time listener
 eventsRef.orderBy('timestamp', 'asc').onSnapshot(snapshot => {
   events = [];
   snapshot.forEach(doc => {
@@ -108,7 +234,6 @@ function generateReport() {
   rows[4].children[3].textContent = total.p;
   rows[4].children[4].textContent = total.l;
 
-  // Chart
   const dates = Object.keys(daily).sort();
   const growth = dates.reduce((acc, date) => {
     const prev = acc.length ? acc[acc.length-1] : 0;
@@ -141,3 +266,6 @@ function generateReport() {
   });
 }
 </script>
+
+</body>
+</html>
